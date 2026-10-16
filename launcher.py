@@ -51,7 +51,7 @@ MOUTH = 3.3        # opening the band passes through
 CAV_D = 3.6        # cavity depth behind the lip
 CAV_H = 4.9        # cavity height
 CAV_R = 0.8
-FIT = -0.15        # grows (+) or shrinks (-) the whole slot. Coupon v1: -0.15 fits but pulls out; v2 tests tighter
+FIT = -0.20        # grows (+) or shrinks (-) the whole slot. Coupon v1: -0.15 pulled out; v2: -0.20 fits and clicks
 DETENT_D = 1.8     # latch hole width; poke a pin in it to release the band
 DETENT_LEN = 4.0   # latch hole is a short slot along the rail so 41 mm and 45 mm bands both click in
 LATCH_FROM_END = 11.0   # latch distance from the end of the band connector (about half its length)
@@ -159,10 +159,11 @@ def place(cs, center, angle_deg):
     return cs.translate((-BOSS_DEPTH / 2, 0)).rotate(angle_deg).translate(center)
 
 
-def rail(z0, z1, fit=FIT, ramp=0.0, detent_z=None):
+def rail(z0, z1, fit=FIT, ramp=0.0, detent_z=None, stop=False):
     """Left rail: solid block blended into the plate, with the band slot and detent hole cut through.
     ramp > 0 adds a sloped underside below z0 so the rail prints without supports.
-    detent_z: where the latch hole goes (default: the middle of the rail)."""
+    detent_z: where the latch hole goes (default: the middle of the rail).
+    stop: the slot ends at z0 (closed by whatever is below), like the fit coupon, so the band pushes in to a stop."""
     boss = place(boss_profile(), BOSS_CENTER, RAIL_ANGLE)
     bridge = rounded_rect(*BRIDGE, 1.0)
     body = Manifold.extrude((boss + bridge).hull(), z1 - z0).translate((0, 0, z0))
@@ -170,9 +171,8 @@ def rail(z0, z1, fit=FIT, ramp=0.0, detent_z=None):
         top = Manifold.extrude((boss + bridge).hull(), 0.01).translate((0, 0, z0))
         foot = Manifold.extrude(bridge, 0.01).translate((0, 0, z0 - ramp))
         body += Manifold.hull(top + foot)
-    # slot runs out both ends so either band length slides in
-    slot = Manifold.extrude(place(slot_profile(fit), BOSS_CENTER, RAIL_ANGLE), z1 - z0 + ramp + 2) \
-        .translate((0, 0, z0 - ramp - 1))
+    start = z0 if stop else z0 - ramp - 1
+    slot = Manifold.extrude(place(slot_profile(fit), BOSS_CENTER, RAIL_ANGLE), z1 + 1 - start).translate((0, 0, start))
     return body - slot - detent((z0 + z1) / 2 if detent_z is None else detent_z)
 
 
@@ -197,16 +197,19 @@ def wrist_plate(ramps_up=False):
     xc = top[0] / 2
     keep = orig ^ box(KEEP_X0, -10, -1, KEEP_X1, 20, top[2] + 1)
     z0 = top[2] / 2 - RAIL_LEN / 2
-    left = rail(z0, z0 + RAIL_LEN, ramp=min(RAMP, z0))
-    if ramps_up:   # rail is symmetric about its middle apart from the ramp
+    # slot closed at the ramp end with the latch hole LATCH_FROM_END up from it: same as the fit coupon
+    latch_z = z0 + LATCH_FROM_END
+    left = rail(z0, z0 + RAIL_LEN, ramp=min(RAMP, z0), detent_z=latch_z, stop=True)
+    if ramps_up:
         left = left.mirror((0, 0, 1)).translate((0, 0, top[2]))
+        latch_z = top[2] - latch_z
     right = left.mirror((1, 0, 0)).translate((2 * xc, 0, 0))
     # rounded edge along the cut where there is no rail
     bead_l = Manifold.extrude(CrossSection.circle(2.0, SEG).translate((KEEP_X0 + 0.4, 3.5)), top[2]) ^ orig.hull()
     bead_r = bead_l.mirror((1, 0, 0)).translate((2 * xc, 0, 0))
     plate = Manifold.batch_boolean([keep, left, right, bead_l, bead_r], OpType.Add)
     # re-cut the detents in case the bead or bridge filled them
-    plate = plate - detent(z0 + RAIL_LEN / 2) - detent(z0 + RAIL_LEN / 2).mirror((1, 0, 0)).translate((2 * xc, 0, 0))
+    plate = plate - detent(latch_z) - detent(latch_z).mirror((1, 0, 0)).translate((2 * xc, 0, 0))
     return plate
 
 
@@ -252,7 +255,7 @@ def watch_fit_coupon(fits=(-0.20, -0.25, -0.30), length=26.0, pitch=16.0, base_h
     v2 (tighter than v1's -0.15 / 0 / +0.15) has a notch in the front edge of the base."""
     parts = []
     for i, f in enumerate(fits):
-        r = rail(base_h, base_h + length, f, detent_z=base_h + LATCH_FROM_END).translate((i * pitch, 0, 0))
+        r = rail(base_h, base_h + length, f, detent_z=base_h + LATCH_FROM_END, stop=True).translate((i * pitch, 0, 0))
         for k in range(i + 1):
             r -= box(i * pitch + 3.0 + k * 1.6, 5.5, base_h + length - 1.0, i * pitch + 3.8 + k * 1.6, 12,
                      base_h + length + 1)

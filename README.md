@@ -30,7 +30,7 @@ The mechanism parts and discs on plates 3 and 4 are the original designer's file
 ## What the new parts do
 
 - **One-piece launcher:** the launcher body and wrist plate are one part, replacing `Main Body_Short`, `WristMount_Body` and `WristMount_Brace`. No curled hooks, no cuff, and the body can't come off the plate. Each side has a solid rail that takes an Apple Watch band.
-- **Band slot:** open at both ends, so a 41 mm or 45 mm band should slide in either way. A small hole at the middle of each rail lines up with the band's latch; poke a paperclip in to release it.
+- **Band slot:** closed at one end, like the fit coupon. Slide the band in from the open end until it stops and clicks; the latch hole is 11 mm from the stop, so 41 mm and 45 mm bands both catch. Poke a paperclip in the hole to release it.
 - **Belt canister:** discs snap in past a flexible lip at the top. Push up through the hole in the bottom to pop one out. The window shows how many are left.
 
 ### How the one-piece was made
@@ -49,7 +49,7 @@ The mechanism parts and discs on plates 3 and 4 are the original designer's file
    | v1 (no base notch) | -0.15 | 0 | +0.15 |
    | v2 (notch in base corner) | -0.20 | -0.25 | -0.30 |
 
-   v1 result: -0.15 fits but pulls out, so `FIT` is -0.15 for now.
+   Results so far: v1's -0.15 pulled out; **v2's 1-notch slot (-0.20) fits and clicks**, so `FIT` is -0.20. The launcher's rails match the coupon: the slot is closed at one end, so slide the band in from the open end until it stops and clicks.
 2. **Assembly order:** with the body fused to the plate, the moving parts have to go in with the body already on the plate. I checked that the body's floor has no openings parts would need to pass through from below, but check your assembly steps against it before printing.
 3. **Belt size:** `BELT_W` and `BELT_T` in `launcher.py` are placeholders (38 x 4.5 mm). Measure the belt and update them.
 
