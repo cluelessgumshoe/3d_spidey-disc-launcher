@@ -10,16 +10,18 @@ The original wrist mount is two parts: a top plate (`DWS_WristMount_Body_v4`) an
 
 ## Print plates
 
-Every part is here, laid out on plates by filament color. Print them in this order:
+**Open `spidey_launcher_all_plates_kobra3.3mf` as a project** (Anycubic Slicer Next, OrcaSlicer or Bambu Studio). It has all six plates in one file, laid out by filament color. Print them in this order:
 
 | Plate | Color | What's on it |
 |---|---|---|
-| `plate1_any_color_fit_test_kobra3.3mf` | any | Watch band fit coupon: three short rails with tight / middle / loose slots (1 / 2 / 3 notches on top). **Print this first.** |
-| `plate2_red_launcher_kobra3.3mf` | red | **The main print:** launcher body and wrist plate as one part, plus the palm cap (`Link2_Cap`) and trigger pad (`Link3_Pad`). |
-| `plate3_black_mechanism_kobra3.3mf` | black | The moving parts: slider and retainer, pushers A and B, lever, `Link3`, spring lock pin, 5 printed springs. |
-| `plate4_red_discs_kobra3.3mf` | red | 12 discs, enough to fill the canister. |
-| `plate5_black_belt_canister_kobra3.3mf` | black | Belt canister for 12 discs. **Measure your belt first** (see below). |
-| `optional_plate_only_kobra3.3mf` | either | Just the new wrist plate, if you'd rather keep a separate launcher body and pin it on like before. |
+| 1 `plate1_any_color_fit_test` | any | Watch band fit coupon: three short rails with tight / middle / loose slots (1 / 2 / 3 notches on top). **Print this first.** |
+| 2 `plate2_red_launcher` | red | **The main print:** launcher body and wrist plate as one part, plus the palm cap (`Link2_Cap`) and trigger pad (`Link3_Pad`). |
+| 3 `plate3_black_mechanism` | black | The moving parts: slider and retainer, pushers A and B, lever, `Link3`, spring lock pin, 5 printed springs. |
+| 4 `plate4_red_discs` | red | 12 discs, enough to fill the canister. |
+| 5 `plate5_black_belt_canister` | black | Belt canister for 12 discs. **Measure your belt first** (see below). |
+| 6 `optional_plate_only` | either | Just the new wrist plate, if you'd rather keep a separate launcher body and pin it on like before. |
+
+If your slicer puts everything on one plate instead, use the single-plate files in `plates/` (same names). `stl/` has an STL of every part.
 
 Want it the other way around (black launcher, red accents)? Load the other spool; nothing else changes. Hardware, same as the original: one 5.5 x 38 mm metal compression spring and 1.75 mm filament for the pins. The C-shaped printed springs on plate 3 are the launch spring; the original file had 5, likely one plus spares.
 
@@ -66,7 +68,7 @@ pip install numpy trimesh manifold3d
 python launcher.py
 ```
 
-That rebuilds `stl/` and the plate 3MFs, and fails if any part has loose pieces or hidden pockets. To re-render the picture in Blender:
+That rebuilds the all-plates 3MF, `plates/` and `stl/`, and fails if any part has loose pieces or hidden pockets. To re-render the picture in Blender:
 
 ```bash
 blender -b -P render.py

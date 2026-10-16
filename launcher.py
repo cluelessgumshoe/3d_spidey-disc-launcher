@@ -343,6 +343,89 @@ def write_3mf(path, parts, bed=BED):
         z.writestr("3D/3dmodel.model", model)
 
 
+def _mesh_xml(tm):
+    verts = "".join(f'<vertex x="{a:.4f}" y="{b:.4f}" z="{c:.4f}"/>' for a, b, c in tm.vertices)
+    tris = "".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in tm.faces)
+    return f"<mesh><vertices>{verts}</vertices><triangles>{tris}</triangles></mesh>"
+
+
+def plate_origin(index, count, bed=BED):
+    """Where plate `index` sits in a multi-plate project: the grid Bambu Studio based slicers
+    (Anycubic Slicer Next, OrcaSlicer) lay plates out on, 1/5 of a bed apart."""
+    root = count ** 0.5
+    cols = int(round(root)) + (1 if root > round(root) else 0)
+    col, row = index % cols, index // cols
+    return col * bed[0] * 1.2, -row * bed[1] * 1.2
+
+
+def write_project_3mf(path, plates_by_name, bed=BED):
+    """One 3MF with every plate, in the Bambu Studio project layout (3D/Objects + Metadata/model_settings.config),
+    so opening it as a project in Anycubic Slicer Next / OrcaSlicer / Bambu Studio brings in all plates at once."""
+    files, objects, items, settings, plate_xml = {}, [], [], [], []
+    oid = 0
+    for p_i, (plate_name, parts) in enumerate(plates_by_name.items()):
+        tms = [(name, m if isinstance(m, trimesh.Trimesh) else to_trimesh(m)) for name, m in parts]
+        ox, oy = plate_origin(p_i, len(plates_by_name), bed)
+        instances = []
+        for (name, tm), (sx, sy) in zip(tms, pack([tm for _, tm in tms], bed)):
+            oid += 2
+            sub = f"3D/Objects/object_{oid // 2}.model"
+            files[sub] = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                          '<model unit="millimeter" xml:lang="en-US" '
+                          'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">'
+                          f'<resources><object id="{oid - 1}" type="model">{_mesh_xml(tm)}</object></resources>'
+                          '<build/></model>')
+            objects.append(f'<object id="{oid}" type="model"><components>'
+                           f'<component p:path="/{sub}" objectid="{oid - 1}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>'
+                           '</components></object>')
+            (x0, y0, z0) = tm.bounds[0]
+            t = (ox + sx - x0, oy + sy - y0, -z0)
+            items.append(f'<item objectid="{oid}" transform="1 0 0 0 1 0 0 0 1 {t[0]:.4f} {t[1]:.4f} {t[2]:.4f}" printable="1"/>')
+            settings.append(f'<object id="{oid}"><metadata key="name" value="{name}"/><metadata key="extruder" value="1"/>'
+                            f'<part id="1" subtype="normal_part"><metadata key="name" value="{name}"/>'
+                            '<metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part></object>')
+            instances.append(f'<model_instance><metadata key="object_id" value="{oid}"/>'
+                             f'<metadata key="instance_id" value="0"/><metadata key="identify_id" value="{100 + oid}"/>'
+                             '</model_instance>')
+        plate_xml.append(f'<plate><metadata key="plater_id" value="{p_i + 1}"/>'
+                         f'<metadata key="plater_name" value="{plate_name}"/><metadata key="locked" value="false"/>'
+                         f'{"".join(instances)}</plate>')
+    model = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+             '<model unit="millimeter" xml:lang="en-US" '
+             'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
+             'xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" '
+             'xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">'
+             '<metadata name="Application">BambuStudio-01.09.00.70</metadata>'
+             '<metadata name="BambuStudio:3mfVersion">1</metadata>'
+             '<metadata name="Title">Spidey disc launcher fork</metadata>'
+             f'<resources>{"".join(objects)}</resources><build>{"".join(items)}</build></model>')
+    model_rels = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                  + "".join(f'<Relationship Target="/{f}" Id="rel-{i + 1}" '
+                            'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>'
+                            for i, f in enumerate(files))
+                  + '</Relationships>')
+    config = ('<?xml version="1.0" encoding="UTF-8"?>\n<config>' + "".join(settings) + "".join(plate_xml) + '</config>')
+    content_types = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                     '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                     '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
+                     '<Default Extension="config" ContentType="text/xml"/>'
+                     '</Types>')
+    rels = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Target="/3D/3dmodel.model" Id="rel0" '
+            'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>')
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", content_types)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("3D/3dmodel.model", model)
+        z.writestr("3D/_rels/3dmodel.model.rels", model_rels)
+        for f, xml in files.items():
+            z.writestr(f, xml)
+        z.writestr("Metadata/model_settings.config", config)
+
+
 def original_part(name):
     return trimesh.load(OUT / "original" / "parts" / f"{name}.stl")
 
@@ -379,11 +462,19 @@ def main():
         assert len(m.decompose()) == 1, (name, "has loose pieces or hidden pockets")
         tm = to_trimesh(m)
         print(f"{name:18s} size {np.round(tm.extents, 1)} mm  volume {m.volume():.0f} mm3  watertight {tm.is_watertight}")
-        tm.export(OUT / "stl" / f"{name}.stl")
         made[name] = m
-    for name, parts in plates(made).items():
-        write_3mf(OUT / f"{name}_kobra3.3mf", parts)
-        print(f"{name:28s} {len(parts):2d} parts")
+    every = plates(made)
+    write_project_3mf(OUT / "spidey_launcher_all_plates_kobra3.3mf", every)
+    print(f"all plates -> spidey_launcher_all_plates_kobra3.3mf ({len(every)} plates)")
+    # the same plates one file each, as a fallback, plus an STL of every part
+    (OUT / "plates").mkdir(exist_ok=True)
+    for name, parts in every.items():
+        write_3mf(OUT / "plates" / f"{name}_kobra3.3mf", parts)
+        print(f"  {name:28s} {len(parts):2d} parts")
+        for part_name, m in parts:
+            tm = m if isinstance(m, trimesh.Trimesh) else to_trimesh(m)
+            stem = part_name.rsplit("_", 1)[0] if part_name.rsplit("_", 1)[-1].isdigit() else part_name
+            tm.export(OUT / "stl" / f"{stem}.stl")
 
 
 if __name__ == "__main__":
