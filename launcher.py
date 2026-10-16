@@ -50,8 +50,10 @@ MOUTH = 3.3        # opening the band passes through
 CAV_D = 3.6        # cavity depth behind the lip
 CAV_H = 4.9        # cavity height
 CAV_R = 0.8
-FIT = 0.0          # grows (+) or shrinks (-) the whole slot; set from the coupon
-DETENT_D = 1.8     # through hole at the slot centre for the band's latch; poke a pin in it to release
+FIT = -0.15        # grows (+) or shrinks (-) the whole slot. Coupon v1: -0.15 fits but pulls out; v2 tests tighter
+DETENT_D = 1.8     # latch hole width; poke a pin in it to release the band
+DETENT_LEN = 4.0   # latch hole is a short slot along the rail so 41 mm and 45 mm bands both click in
+LATCH_FROM_END = 11.0   # latch distance from the end of the band connector (about half its length)
 
 # ---- belt canister -------------------------------------------------------------
 DISC_D = 30.46     # measured from the original Disc.stl
@@ -156,9 +158,10 @@ def place(cs, center, angle_deg):
     return cs.translate((-BOSS_DEPTH / 2, 0)).rotate(angle_deg).translate(center)
 
 
-def rail(z0, z1, fit=FIT, ramp=0.0):
+def rail(z0, z1, fit=FIT, ramp=0.0, detent_z=None):
     """Left rail: solid block blended into the plate, with the band slot and detent hole cut through.
-    ramp > 0 adds a sloped underside below z0 so the rail prints without supports."""
+    ramp > 0 adds a sloped underside below z0 so the rail prints without supports.
+    detent_z: where the latch hole goes (default: the middle of the rail)."""
     boss = place(boss_profile(), BOSS_CENTER, RAIL_ANGLE)
     bridge = rounded_rect(*BRIDGE, 1.0)
     body = Manifold.extrude((boss + bridge).hull(), z1 - z0).translate((0, 0, z0))
@@ -169,11 +172,11 @@ def rail(z0, z1, fit=FIT, ramp=0.0):
     # slot runs out both ends so either band length slides in
     slot = Manifold.extrude(place(slot_profile(fit), BOSS_CENTER, RAIL_ANGLE), z1 - z0 + ramp + 2) \
         .translate((0, 0, z0 - ramp - 1))
-    return body - slot - detent((z0 + z1) / 2)
+    return body - slot - detent((z0 + z1) / 2 if detent_z is None else detent_z)
 
 
-def detent(z):
-    """Pin hole across the slot (through both walls) at the rail's middle, for the band's latch."""
+def detent(z, length=DETENT_LEN):
+    """Latch hole across the slot (through both walls), a short slot along the rail centred on z."""
     a = np.radians(RAIL_ANGLE)
     v = np.array([-np.sin(a), np.cos(a)])           # local +v in plate coordinates
     u = np.array([np.cos(a), np.sin(a)])            # local +u (inward)
@@ -182,6 +185,8 @@ def detent(z):
     # cylinder axis is z; turn it to lie along v
     ang = np.degrees(np.arctan2(v[1], v[0]))
     pin = pin.rotate((0, 90, 0)).rotate((0, 0, ang))
+    run = max(length - DETENT_D, 0) / 2
+    pin = Manifold.hull(pin.translate((0, 0, -run)) + pin.translate((0, 0, run)))
     return pin.translate((c[0], c[1], z))
 
 
@@ -240,15 +245,19 @@ def print_one_piece():
 
 
 # ---- fit coupon ---------------------------------------------------------------------
-def watch_fit_coupon(fits=(-0.15, 0.0, 0.15), length=24.0, pitch=16.0):
-    """Three short rails side by side, slot sizes from tight to loose; 1 / 2 / 3 notches on top mark them."""
+def watch_fit_coupon(fits=(-0.20, -0.25, -0.30), length=26.0, pitch=16.0, base_h=2.0):
+    """Three short rails side by side, slot sizes from loosest to tightest; 1 / 2 / 3 notches on top mark them.
+    The base closes the bottom of each slot, so push the band all the way down and it should click.
+    v2 (tighter than v1's -0.15 / 0 / +0.15) has a notch in the front edge of the base."""
     parts = []
     for i, f in enumerate(fits):
-        r = rail(0, length, f).translate((i * pitch, 0, 0))
+        r = rail(base_h, base_h + length, f, detent_z=base_h + LATCH_FROM_END).translate((i * pitch, 0, 0))
         for k in range(i + 1):
-            r -= box(i * pitch + 3.0 + k * 1.6, 5.5, length - 1.0, i * pitch + 3.8 + k * 1.6, 12, length + 1)
+            r -= box(i * pitch + 3.0 + k * 1.6, 5.5, base_h + length - 1.0, i * pitch + 3.8 + k * 1.6, 12,
+                     base_h + length + 1)
         parts.append(r)
-    base = box(-6, -4, 0, (len(fits) - 1) * pitch + 9, 7, 2.0)
+    base = box(-6, -4, 0, (len(fits) - 1) * pitch + 9, 7, base_h)
+    base -= box(-7, 5.0, -1, -3.0, 8, base_h + 1)   # v2 marker
     return Manifold.batch_boolean(parts + [base], OpType.Add)
 
 

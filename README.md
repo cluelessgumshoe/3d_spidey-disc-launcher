@@ -14,7 +14,7 @@ The original wrist mount is two parts: a top plate (`DWS_WristMount_Body_v4`) an
 
 | Plate | Color | What's on it |
 |---|---|---|
-| 1 `plate1_any_color_fit_test` | any | Watch band fit coupon: three short rails with tight / middle / loose slots (1 / 2 / 3 notches on top). **Print this first.** |
+| 1 `plate1_any_color_fit_test` | any | Watch band fit coupon v2 (notch in the base corner): three short rails, 1 / 2 / 3 notches on top = loosest to tightest. **Print this first.** |
 | 2 `plate2_red_launcher` | red | **The main print:** launcher body and wrist plate as one part, plus the palm cap (`Link2_Cap`) and trigger pad (`Link3_Pad`). |
 | 3 `plate3_black_mechanism` | black | The moving parts: slider and retainer, pushers A and B, lever, `Link3`, spring lock pin, 5 printed springs. |
 | 4 `plate4_red_discs` | red | 12 discs, enough to fill the canister. |
@@ -42,7 +42,14 @@ The mechanism parts and discs on plates 3 and 4 are the original designer's file
 
 ## Before printing
 
-1. **Band fit:** print plate 1 and slide your band into each slot. Pick the one that slides in snugly and clicks. If none are right, change `FIT` in `launcher.py` (+ is looser) and rerun.
+1. **Band fit:** print plate 1, push your band all the way down each slot and tug it. Pick the one that slides in and clicks so it won't pull out (poke a paperclip in the side hole to release it). Then set `FIT` in `launcher.py` and rerun:
+
+   | Coupon | 1 notch | 2 notches | 3 notches |
+   |---|---|---|---|
+   | v1 (no base notch) | -0.15 | 0 | +0.15 |
+   | v2 (notch in base corner) | -0.20 | -0.25 | -0.30 |
+
+   v1 result: -0.15 fits but pulls out, so `FIT` is -0.15 for now.
 2. **Assembly order:** with the body fused to the plate, the moving parts have to go in with the body already on the plate. I checked that the body's floor has no openings parts would need to pass through from below, but check your assembly steps against it before printing.
 3. **Belt size:** `BELT_W` and `BELT_T` in `launcher.py` are placeholders (38 x 4.5 mm). Measure the belt and update them.
 
