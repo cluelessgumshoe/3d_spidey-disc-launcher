@@ -56,7 +56,7 @@ The mechanism parts and discs on plates 3 and 4 are the original designer's file
 ## PETG or PLA
 
 - **Launcher, canister, mechanism parts, discs: PETG.** It bends before it breaks, which is what this toy needs, and it's what your Kobra is already dialed in for. PLA is stiffer but snaps.
-- **Springs: start with PETG, keep PLA as plan B.** The original print settings look like Bambu's PLA defaults, so the springs were probably tuned in PLA. PLA is stiffer, so PETG springs will push a bit softer (shorter shots) but last longer. If the shots feel weak, reprint just the springs in PLA.
+- **Launch springs: plain PLA** (not matte or silk). MechBrick recommends that for the launch spring on the Mark III, and the MK-I spring was tuned in PLA too. PETG springs will push softer and shoot shorter.
 
 ## Print settings (Anycubic Kobra 3 V2, PETG)
 
