@@ -2,6 +2,8 @@
 
 Fixes and add-ons for MechBrick's Spidey Disc Launcher MK-I (its STLs are named "DWS"). The launcher body and wrist mount become one solid piece that straps on with an Apple Watch band, and there is a belt canister for spare discs. Every part you need is here, laid out on print plates by color.
 
+This folder is the MK-I version (printed, assembled and working; git tag `mk1-v1`). The 4-disc Mark III version is in [`mk3/`](mk3/README.md).
+
 ![One-piece launcher (red), watch band fit coupon and belt canister (blue), original disc (white)](images/render_parts.png)
 
 ## What was breaking
