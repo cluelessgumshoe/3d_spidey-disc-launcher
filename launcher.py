@@ -20,7 +20,8 @@ from manifold3d import CrossSection, FillRule, Manifold, Mesh, OpType
 
 OUT = Path(__file__).parent
 SEG = 64
-BED = (250, 250)   # Anycubic Kobra 3 V2
+BED = (255, 255)   # Anycubic Kobra 3 V2 bed as the slicer profile has it; multi-plate projects space plates
+                   # 1.2 bed widths apart (OrcaSlicer PartPlateList::plate_stride_x), so this must match
 SPRINGS = 5        # printed springs, as many as the original print file had
 
 # ---- wrist plate --------------------------------------------------------------
@@ -359,8 +360,9 @@ def _mesh_xml(tm):
 
 
 def plate_origin(index, count, bed=BED):
-    """Where plate `index` sits in a multi-plate project: the grid Bambu Studio based slicers
-    (Anycubic Slicer Next, OrcaSlicer) lay plates out on, 1/5 of a bed apart."""
+    """Where plate `index` sits in a multi-plate project: the grid OrcaSlicer based slicers (Anycubic Slicer Next)
+    lay plates out on, 1/5 of a bed apart. On opening, the slicer rebuilds which part is on which plate from these
+    positions, so BED must match the printer profile's bed."""
     root = count ** 0.5
     cols = int(round(root)) + (1 if root > round(root) else 0)
     col, row = index % cols, index // cols
