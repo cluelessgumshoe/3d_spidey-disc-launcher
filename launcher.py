@@ -71,16 +71,21 @@ LATCH_FROM_END = 11.0   # latch distance from the end of the band connector (abo
 DISC_D = 30.46     # measured from the original Disc.stl
 DISC_T = 3.2
 DISCS = 12
-BORE = DISC_D + 0.6
+BORE = DISC_D + 0.9            # room for the 101.5% test discs too
 WALL = 2.0
 FLOOR = 2.0
-PUSH_HOLE = 20.0   # finger hole in the floor: push the stack up to pop the top disc out
-LIP_ID = DISC_D - 0.7          # top lip the discs snap past
-FINGER_H = 8.0     # slit fingers at the rim flex so discs can snap past the lip
-FINGER_T = 1.6
-SLITS = 4
-SLIT_W = 1.2
-WINDOW_W = 8.0     # front window shows how many are left
+HEADROOM = 2.0                 # above a full stack of DISCS
+FINGER_SLOT_W = 14.0           # slot up through the floor: a finger slides the bottom disc out the front
+EXIT_H = DISC_T + 0.8          # one disc high, so only the bottom disc can leave
+BUMP_H, BUMP_W = 0.4, 1.4      # keeper ridge at the exit: a disc needs a push to get over it
+WINDOW_W = 8.0                 # front window shows how many are left
+CAP_SEAT = 3.0                 # cap snap bead this far below the top of the tube
+BEAD, BEAD_H = 0.5, 1.4        # bead sticks out 0.5 mm
+CAP_CLEAR = 0.2
+CAP_WALL = 1.8
+CAP_TOP = 2.0
+CAP_BACK_OPEN = -11.0          # cap skirt is cut away behind this (y), clear of the belt loop
+RIB_GRIP = 0.15                # cap rib's inner edge: this far outside the tube wall, so it catches under the bead
 BELT_W = 38.0      # TODO: measure the belt
 BELT_T = 4.5       # TODO: measure the belt
 BELT_CLEAR = (1.5, 1.0)  # extra (width, thickness) in the belt tunnel
@@ -336,35 +341,67 @@ def watch_fit_coupon(fits=(-0.20, -0.25, -0.30), length=26.0, pitch=16.0, base_h
 
 # ---- belt canister -------------------------------------------------------------------
 def belt_canister():
-    """Disc tube with slit-finger snap lip on top, finger push hole in the floor and a belt tunnel at the back.
-    Prints upright, open end up; the belt tunnel ceiling is a short bridge."""
-    stack = DISCS * DISC_T + 1.0
-    h = FLOOR + stack + 1.2
+    """v2 (2026-10-30 feedback: "the discs just kind of sit in there"): a dispenser. Discs load from the top under a
+    snap-on cap (belt_cap) and come out the bottom: a one-disc-high exit slot across the front, a finger slot up
+    through the floor to slide the bottom disc out, and a small bump at the exit so a disc doesn't slide out on its
+    own. Gravity drops the next disc into place. Belt tunnel on the back as before.
+    Prints upright; turn on supports (build plate only) for the roof of the exit slot."""
+    h = canister_height()
     ro = BORE / 2 + WALL
-    tube = cyl(0, 0, 0, h, ro)
-    tube -= cyl(0, 0, FLOOR, h + 1, BORE / 2)
-    tube -= cyl(0, 0, -1, FLOOR + 1, PUSH_HOLE / 2)
-    # snap lip at the very top, ramped on both sides so discs push in from above and out from below
-    lip = cyl(0, 0, h - 1.6, h, BORE / 2 + 0.1)
-    below = Manifold.cylinder(0.85, BORE / 2, LIP_ID / 2 - 0.02, SEG).translate((0, 0, h - 1.65))
-    above = Manifold.cylinder(0.85, LIP_ID / 2, LIP_ID / 2 + 0.64, SEG).translate((0, 0, h - 0.8))
-    tube += lip - (below + above + cyl(0, 0, h - 1.7, h - 1.6, BORE / 2))
-    # thin the wall around the fingers so they flex, then slit them
-    tube -= cyl(0, 0, h - FINGER_H, h + 1, ro + 1) - cyl(0, 0, h - FINGER_H - 1, h + 2, BORE / 2 + FINGER_T)
-    for k in range(SLITS):
-        s = box(-SLIT_W / 2, 0, h - FINGER_H, SLIT_W / 2, ro + 2, h + 1)
-        tube -= s.rotate((0, 0, 45 + k * 360 / SLITS))
-    # front window (+y is away from the belt)
-    tube -= box(-WINDOW_W / 2, 0, FLOOR + 3, WINDOW_W / 2, ro + 2, h - FINGER_H - 2)
+    tube = cyl(0, 0, 0, h, ro) - cyl(0, 0, FLOOR, h + 1, BORE / 2)
+    # finger slot: from the middle of the floor out to the front edge
+    tube -= cyl(0, 0, -1, FLOOR + 0.01, FINGER_SLOT_W / 2) + box(-FINGER_SLOT_W / 2, 0, -1, FINGER_SLOT_W / 2, ro + 1, FLOOR + 0.01)
+    # exit slot across the front, one disc high
+    tube -= box(-BORE / 2, 0, FLOOR, BORE / 2, ro + 1, FLOOR + EXIT_H)
+    # count window above it
+    tube -= box(-WINDOW_W / 2, 0, FLOOR + EXIT_H + 3, WINDOW_W / 2, ro + 1, h - CAP_SEAT - 2)
+    # keeper ridge just outside the bore on the front ledge (never under a resting disc): a leaving disc has to
+    # ride up BUMP_H over it, so it doesn't slide out on its own; ramped both ways
+    r0 = BORE / 2 + 0.1
+    ridge = Manifold.revolve(CrossSection([[(r0, 0), (r0 + BUMP_W, 0), (r0 + BUMP_W / 2, BUMP_H)]]), SEG)
+    ridge = ridge ^ box(-50, 0, -1, 50, 50, 5)
+    ridge -= box(-FINGER_SLOT_W / 2, -1, -1, FINGER_SLOT_W / 2, 50, 5)
+    tube += ridge.translate((0, 0, FLOOR - 0.01))
+    # snap bead around the top for the cap
+    zb = h - CAP_SEAT
+    bead = Manifold.cylinder(BEAD_H / 2, ro, ro + BEAD, SEG).translate((0, 0, zb - BEAD_H)) + \
+        Manifold.cylinder(BEAD_H / 2, ro + BEAD, ro, SEG).translate((0, 0, zb - BEAD_H / 2))
+    tube += bead - cyl(0, 0, zb - BEAD_H - 1, zb + 1, BORE / 2)
     # belt tunnel at the back (-y), running along x
     bw, bt = BELT_W + BELT_CLEAR[0], BELT_T + BELT_CLEAR[1]
-    lh = max(h, bw + 2 * LOOP_WALL)
+    lh = h                              # flush with the tube top, under the cap
     lw = 2 * ro
     back = -ro + 1.0
     loop = box(-lw / 2, back - bt - 2 * LOOP_WALL, 0, lw / 2, back, lh) \
         - box(-lw / 2 - 1, back - bt - LOOP_WALL, LOOP_WALL, lw / 2 + 1, back - LOOP_WALL, LOOP_WALL + bw)
-    web = box(-ro * 0.6, back - 0.5, 0, ro * 0.6, -ro + 4.0, h) - cyl(0, 0, FLOOR, h + 1, BORE / 2)
+    web = box(-ro * 0.6, back - 0.5, 0, ro * 0.6, -ro + 4.0, lh) - cyl(0, 0, FLOOR, h + 1, BORE / 2)
     return Manifold.batch_boolean([tube, loop, web], OpType.Add)
+
+
+def canister_height():
+    """Tall enough for the stack and for the belt loop on the back (the loop top stays flush with the tube top)."""
+    return max(FLOOR + DISCS * DISC_T + HEADROOM, BELT_W + BELT_CLEAR[0] + 2 * LOOP_WALL)
+
+
+def belt_cap():
+    """Snap-on cap for the canister: slit skirt with a rib that clicks under the bead, and a pull tab.
+    Prints top-down (as modelled: flat top on the bed)."""
+    ro = BORE / 2 + WALL
+    ri = ro + BEAD + CAP_CLEAR          # skirt clears the bead
+    skirt_h = CAP_SEAT + BEAD_H + 1.6   # reaches past the bead
+    cap = cyl(0, 0, 0, CAP_TOP + skirt_h, ri + CAP_WALL) - cyl(0, 0, CAP_TOP, CAP_TOP + skirt_h + 1, ri)
+    # rib at the skirt's open edge, just past the bead when seated; ramped toward the open edge so it pushes on,
+    # flat on the side facing the top so it clicks under the bead and holds
+    z_rib = CAP_TOP + CAP_SEAT + BEAD_H + 0.1
+    rib = cyl(0, 0, z_rib, CAP_TOP + skirt_h, ri) - Manifold.cylinder(CAP_TOP + skirt_h - z_rib, ro + RIB_GRIP, ri + 0.01, SEG) \
+        .translate((0, 0, z_rib))
+    cap += rib
+    for k in range(4):
+        cap -= box(-0.6, 0, CAP_TOP + 1.5, 0.6, ri + CAP_WALL + 1, CAP_TOP + skirt_h + 1).rotate((0, 0, 45 + 90 * k))
+    # open at the back, where the belt loop joins the tube; the skirt clicks on around the front
+    cap -= box(-50, -50, CAP_TOP, 50, CAP_BACK_OPEN, 50)
+    tab = box(-5, ri, 0, 5, ri + CAP_WALL + 5, CAP_TOP)
+    return cap + tab
 
 
 # ---- export ---------------------------------------------------------------------
@@ -537,7 +574,7 @@ def plates(made):
                                    ("Slider", "Slider_Retainer", "Pusher_A", "Pusher_B", "Link3", "SpringLockPin")]
                                   + [(f"Spring_{i + 1}", original_part("Spring")) for i in range(SPRINGS)],
         "plate4_any_color_discs": [(f"Disc_{i + 1}", disc()) for i in range(DISCS)] + test_discs,
-        "plate5_black_belt_canister": [("belt_canister", made["belt_canister"])],
+        "plate5_black_belt_canister": [("belt_canister", made["belt_canister"]), ("belt_cap", made["belt_cap"])],
         "optional_plate_only": [("wrist_plate", made["wrist_plate"])],
     }
 
@@ -545,7 +582,7 @@ def plates(made):
 def main():
     (OUT / "stl").mkdir(exist_ok=True)
     designs = {"launcher_one_piece": print_one_piece, "wrist_plate": wrist_plate,
-               "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister}
+               "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister, "belt_cap": belt_cap}
     designs.update({f"lever_bent_{d:.0f}": (lambda d=d: lever_bent(d)) for d in LEVER_BENDS})
     made = {}
     for name, fn in designs.items():
