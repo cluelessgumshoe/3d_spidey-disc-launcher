@@ -17,8 +17,8 @@ import trimesh
 from manifold3d import CrossSection, Manifold, Mesh, OpType
 
 HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE.parent))
-import launcher as L   # noqa: E402  shared slot shape, latch settings and 3MF writers from the MK-I fork
+sys.path.insert(0, str(HERE.parent / "mk1"))
+import launcher as L   # noqa: E402  shared slot shape, latch settings and 3MF writers from the MK-I fork (mk1/)
 
 # ---- band rails on the wrist base ------------------------------------------------
 FIT = -0.10        # flat-printed slot; the standing MK-I coupon liked -0.20. Set from coupon v3

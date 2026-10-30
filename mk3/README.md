@@ -1,6 +1,6 @@
 # Mark III on a watch band (v2, in progress)
 
-Remix of [Spidey Disc Launcher Mark-III (Quick-Eject)](https://makerworld.com/en/models/3182162-spidey-disc-launcher-mark-iii-quick-eject) by MechBrick: the 4-disc removable cartridge version. Our MK-I fork is unchanged one folder up (tag `mk1-v1`).
+Remix of [Spidey Disc Launcher Mark-III (Quick-Eject)](https://makerworld.com/en/models/3182162-spidey-disc-launcher-mark-iii-quick-eject) by MechBrick: the 4-disc removable cartridge version. Our MK-I fork is in [`../mk1/`](../mk1/README.md).
 
 ## What's different from MechBrick's Mark III
 
@@ -43,7 +43,7 @@ Your MK-I discs (30.5 mm) don't fit the Mark III.
 python mk3/mk3.py
 ```
 
-Uses the slot shape, latch settings and 3MF writers from `../launcher.py`.
+Uses the slot shape, latch settings and 3MF writers from `../mk1/launcher.py`.
 
 ## Credits
 
