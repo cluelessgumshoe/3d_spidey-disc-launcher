@@ -2,13 +2,27 @@
 
 Fixes and add-ons for MechBrick's Spidey Disc Launcher MK-I (its STLs are named "DWS"). The launcher body and wrist mount become one solid piece that straps on with an Apple Watch band, and there is a belt canister for spare discs. Every part you need is here, laid out on print plates by color.
 
-This folder is the MK-I version (printed, assembled and working; git tag `mk1-v1`). The 4-disc Mark III version is in [`mk3/`](mk3/README.md).
+This folder is the MK-I version. **v2** (2026-10-30) is below; the first printed version is git tag `mk1-v1`. The 4-disc Mark III version is in [`mk3/`](mk3/README.md).
 
 ![One-piece launcher (red), watch band fit coupon and belt canister (blue), original disc (white)](images/render_parts.png)
 
 ## What was breaking
 
 The original wrist mount is two parts: a top plate (`DWS_WristMount_Body_v4`) and a C-shaped cuff (`DWS_WristMount_Brace_v2`). The cuff's curled ends hook around curled edges on the plate. Those curls are about 2 mm thick at the neck, in short segments, and they take every snap-on, pull-off and shot. That's the torn edge in the photo. The launcher body then pins onto the plate with a filament pin through two small tabs.
+
+## v2: after the Halloween party
+
+v1 snapped at the elbow end, where the launcher body hung 22 mm past the end of the plate with nothing under it and the print layers ran straight across it (photos and the walkthrough video are in `feedback/2026-10-30/`). v2:
+
+![v1 next to v2, side view from the wrist side](images/one_piece_v1_vs_v2.png)
+
+- **Truly one piece.** The plate now runs under the whole body, out to the elbow end, and every gap between plate and body is filled, all the way along (v1 only joined the sides). About 5,300 mm3 more material holding it together.
+- **Pin end fused.** The plate tabs and body knuckles at the hand end are filled into solid blocks. The pin hole stays open because the trigger link (`Link3`) still pivots on it, and its slot between the knuckles stays clear.
+- **Leftover holes filled.** The four small holes by the C-spring base (old mount) are filled flush.
+- **Band 5 mm further toward the elbow,** so the launcher sits 5 mm closer to the hand.
+- **Lever test prints.** `Link2_Lever_bent_10deg` and `_bent_20deg` swing the palm cap end down toward the palm by 10 and 20 degrees; the pivot holes don't move. Print both, keep the one that sits best.
+- **Bigger disc test prints.** The disc sits a little loose, so plate 4 also has three discs at 101% and three at 101.5% (names show the size in the slicer's object list). Try them in the launcher; if one feels right, that's the size to print from now on.
+- It also prints a little easier: less overhang (525 vs 612 mm2) and more of it sits on the bed.
 
 ## Print plates
 
@@ -17,9 +31,9 @@ The original wrist mount is two parts: a top plate (`DWS_WristMount_Body_v4`) an
 | Plate | Color | What's on it |
 |---|---|---|
 | 1 `plate1_any_color_fit_test` | any | Watch band fit coupon v2 (notch in the base corner): three short rails, 1 / 2 / 3 notches on top = loosest to tightest. **Print this first.** |
-| 2 `plate2_red_launcher` | red | **The main print:** launcher body and wrist plate as one part, plus the palm cap (`Link2_Cap`) and trigger pad (`Link3_Pad`). |
-| 3 `plate3_black_mechanism` | black | The moving parts: slider and retainer, pushers A and B, lever, `Link3`, spring lock pin, 5 printed springs. |
-| 4 `plate4_red_discs` | red | 12 discs, enough to fill the canister. |
+| 2 `plate2_red_launcher` | red | **The main print:** launcher body and wrist plate as one part, plus the palm cap (`Link2_Cap`), trigger pad (`Link3_Pad`) and three levers: original, bent 10 and bent 20 degrees. |
+| 3 `plate3_black_mechanism` | black | The moving parts: slider and retainer, pushers A and B, `Link3`, spring lock pin, 5 printed springs. |
+| 4 `plate4_any_color_discs` | any | 12 discs, enough to fill the canister, plus test discs at 101% and 101.5%. |
 | 5 `plate5_black_belt_canister` | black | Belt canister for 12 discs. **Measure your belt first** (see below). |
 | 6 `optional_plate_only` | either | Just the new wrist plate, if you'd rather keep a separate launcher body and pin it on like before. |
 
@@ -38,7 +52,7 @@ The mechanism parts and discs on plates 3 and 4 are the original designer's file
 ### How the one-piece was made
 
 - The launcher body's end knuckles pin between the plate's two tabs (both 2.2 mm holes). Flipped end for end about that pin, the body lies along the plate with zero overlap and a 2.3 mm gap under its floor.
-- The gap is filled under both sides of the body. The plate's middle channel and the pocket at its far end are left open in case moving parts use them.
+- v2: the gap is filled under the whole body (v1 only did the sides). The only space left open at the pin end is the trigger link's slot between the knuckles.
 - The two small windows in the body's floor, where the old cuff hooks clipped in, are filled solid.
 - The pin hole is kept open, so anything that pivoted on that pin still can.
 

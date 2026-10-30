@@ -38,11 +38,22 @@ RAMP = 9.0                     # sloped underside below each rail; the plate pri
 # ---- launcher body fused onto the plate ----------------------------------------
 # Measured from the original files: the body's end knuckles pin between the plate's two tabs (both 2.2 mm
 # filament-pin holes). Flipped end for end about that pin, the body lies along the plate with zero overlap and
-# a 1.27 mm gap under its floor; that gap is filled to join them.
+# a 1.3 to 2.3 mm gap under its floor; that gap is filled to join them.
+# Modelled coords: z = 0 is the hand end (pin, trigger link, lever); the body runs to z = 71.4 at the elbow end.
 PLATE_PIN = (7.86, 5.0)           # (y, z) of the tab pin hole; x is the plate centre
 BODY_PIN = (22.81, 2.8, 66.38)    # (x, y, z) of the knuckle pin hole in DWS_Main_Body_Short_v2
-WEB_Z = (9.0, 49.0)               # gap fill runs from past the pin tabs to the end of the plate
-WEB_X_SKIP = (17.5, 33.5)         # leave the plate's middle channel and end pocket open (moving parts may use them)
+# v2 (after it broke at the pin joint, 2026-10-30): fuse everything except the trigger link's slot
+LINK_SLOT = (19.42, 31.72, 13.0)  # x0, x1, z_end: the trigger link (Link3) sits between the knuckles on the pin
+PIN_BLOCK_X = ((12.82, 19.42), (31.72, 38.37))   # plate tab + body knuckle on each side, fused into one block
+PIN_BLOCK_Y = 9.55                # top of the plate tabs: the blocks stay inside the old outline so nothing
+                                  # that moved around the pin end (lever, link) can hit new material
+PIN_D = 2.2                       # pin bore kept open through the blocks for the trigger link
+BODY_END_Z = 71.38                # the plate is extended under the whole body, out to its elbow end
+SPINE_X = (16.27, 34.87)          # the body's narrow elbow-end tongue (z > 56)
+SPINE_FROM_Z = 56.0
+LEFTOVER_HOLES = [(16.9, 51.3), (18.1, 55.3), (33.0, 55.3), (34.3, 51.3)]   # (x, z) of 2.1 mm vertical holes
+LEFTOVER_HOLE_Y = (17.0, 22.75)   # filled flush with the top of their bosses (22.75); they do nothing now
+RAIL_SHIFT = 5.0                  # band rails moved this far toward the elbow so the launcher sits nearer the hand
 
 # ---- Apple Watch band slot (cross-section looking along the slot) --------------
 # Best estimate of the band connector; print watch_fit_coupon.3mf to check before the plate.
@@ -191,15 +202,17 @@ def detent(z, length=DETENT_LEN):
     return pin.translate((c[0], c[1], z))
 
 
-def wrist_plate(ramps_up=False):
-    """ramps_up puts the rail ramps on the high-z end, for printing the part the other way up."""
+def wrist_plate(ramps_up=False, shift=RAIL_SHIFT):
+    """ramps_up puts the rail ramps on the high-z end, for printing the part the other way up.
+    shift moves both rails toward the elbow end (+z)."""
     orig, top = original_plate()
     xc = top[0] / 2
     keep = orig ^ box(KEEP_X0, -10, -1, KEEP_X1, 20, top[2] + 1)
-    z0 = top[2] / 2 - RAIL_LEN / 2
+    # rails are built ramp-down and mirrored for ramps_up, so the shift is applied before the mirror
+    z0 = top[2] / 2 - RAIL_LEN / 2 + (-shift if ramps_up else shift)
     # slot closed at the ramp end with the latch hole LATCH_FROM_END up from it: same as the fit coupon
     latch_z = z0 + LATCH_FROM_END
-    left = rail(z0, z0 + RAIL_LEN, ramp=min(RAMP, z0), detent_z=latch_z, stop=True)
+    left = rail(z0, z0 + RAIL_LEN, ramp=RAMP if ramps_up else min(RAMP, z0), detent_z=latch_z, stop=True)
     if ramps_up:
         left = left.mirror((0, 0, 1)).translate((0, 0, top[2]))
         latch_z = top[2] - latch_z
@@ -224,28 +237,84 @@ def launcher_body():
         .translate((plate_w / 2, *PLATE_PIN))
 
 
+def plate_extension(plate):
+    """The plate's cross-section carried on past its end, under the rest of the body out to the elbow end:
+    full width while the body is wide, then a spine under the narrow tongue."""
+    end = original_plate()[1][2]
+    prof = (plate ^ box(KEEP_X0, -10, end - 9.5, KEEP_X1, 20, end - 9.0)).slice(end - 9.25)
+    ext = Manifold.extrude(prof, BODY_END_Z - end + 0.1).translate((0, 0, end - 0.1))
+    wide = box(KEEP_X0, -10, end - 1, KEEP_X1, 20, SPINE_FROM_Z)
+    spine = Manifold.extrude(rounded_rect(SPINE_X[0], -10, SPINE_X[1], 20, 1.0), BODY_END_Z - SPINE_FROM_Z + 1) \
+        .translate((0, 0, SPINE_FROM_Z - 0.5)) ^ box(-50, -50, -50, 100, 100, BODY_END_Z)
+    return ext ^ (wide + spine)
+
+
 def launcher_one_piece():
-    """New watch-band plate and the launcher body as one part: no snap hooks, no cuff, no clip-on joint.
+    """New watch-band plate and the launcher body as one solid part.
+    v2: the plate runs under the whole body; every gap between them is filled except the trigger link's slot at
+    the hand end; the plate tabs and body knuckles at the pin are fused into solid blocks (the old pin joint is
+    where v1 snapped); leftover holes from the old mount are filled.
     Prints muzzle end down (see print_one_piece), the way the launcher body was designed to print."""
     plate = wrist_plate(ramps_up=True)
+    plate = plate + plate_extension(plate)
     body = launcher_body()
-    sides = box(KEEP_X0, -50, WEB_Z[0], KEEP_X1, 50, WEB_Z[1]) - box(WEB_X_SKIP[0], -60, -60, WEB_X_SKIP[1], 60, 120)
-    floor_y = (body ^ sides).bounding_box()[1]
-    plate_top = (plate ^ sides).bounding_box()[4]
-    # copy the body's floor straight down onto the plate; its windows and notches stay open
-    # (the floor is not all one height, so take a 2 mm band; anything open through the band stays open)
-    skin = body ^ sides ^ box(-50, floor_y, -50, 100, floor_y + 2.0, 120)
-    steps = int(np.ceil((floor_y + 2.0 - plate_top) / 0.3)) + 1
-    web = Manifold.batch_boolean([skin.translate((0, -0.3 * k, 0)) for k in range(steps)], OpType.Add)
-    one = Manifold.batch_boolean([plate, body, web], OpType.Add)
-    # the fill seals the two floor windows the old cuff hooks clipped into; keep only the outer shell so they
-    # print solid instead of as hidden pockets
-    return max(one.decompose(), key=lambda p: p.volume())
+    link_slot = box(LINK_SLOT[0], -60, -60, LINK_SLOT[1], 60, LINK_SLOT[2])
+    region = box(KEEP_X0, -50, 0, KEEP_X1, 50, BODY_END_Z) - link_slot
+    # copy the body's underside straight down onto the plate (the floor is at a few heights, so take a 3.2 mm band;
+    # anything that is open right through the band, like the floor notches, stays open)
+    floor_y = (body ^ region).bounding_box()[1]
+    skin = body ^ region ^ box(-50, floor_y, -50, 100, floor_y + 3.2, 120)
+    steps = int(np.ceil((floor_y + 3.2 - 4.0) / 0.3)) + 1
+    web = Manifold.batch_boolean([skin.translate((0, -0.3 * k, 0)) for k in range(steps)], OpType.Add) ^ region
+    web ^= box(-50, 2.0, -50, 100, 100, 120)   # never below y = 2: the plate's wrist face is at 0.4 to 1.6
+    # pin end: tab + knuckle on each side become one block, bore kept for the trigger link's pin
+    # (the hull of what is already there on each side, so the fill can't poke out past the tab or knuckle)
+    both = plate + body
+    blocks = [Manifold.hull(both ^ box(x0, 3.0, 0.0, x1, PIN_BLOCK_Y, 10.0)) for x0, x1 in PIN_BLOCK_X]
+    bore_x0, bore_x1 = PIN_BLOCK_X[0][0] - 0.5, PIN_BLOCK_X[1][1] + 0.5   # only through the blocks and link slot
+    bore = Manifold.cylinder(bore_x1 - bore_x0, PIN_D / 2, PIN_D / 2, 32).rotate((0, 90, 0)).translate((bore_x0, *PLATE_PIN))
+    hull = body.hull()
+    holes = [Manifold.cylinder(LEFTOVER_HOLE_Y[1] - LEFTOVER_HOLE_Y[0], 1.3, 1.3, 24).rotate((-90, 0, 0))
+             .translate((x, LEFTOVER_HOLE_Y[0], z)) ^ hull for x, z in LEFTOVER_HOLES]
+    one = Manifold.batch_boolean([plate, body, web] + blocks + holes, OpType.Add) - bore
+    # filling the gap seals a few pockets (the floor windows the old cuff hooks clipped into); keep only the
+    # outer shell so they print solid
+    parts = sorted(one.decompose(), key=lambda p: -p.volume())
+    if len(parts) > 1:
+        print("  one-piece: filled sealed pockets / dropped bits of", [round(p.volume(), 1) for p in parts[1:]])
+    return parts[0]
 
 
 def print_one_piece():
     """The one-piece launcher turned muzzle end down for printing."""
     return launcher_one_piece().rotate((180, 0, 0))
+
+
+# ---- trigger lever, bent closer to the palm ------------------------------------------
+LEVER_BENDS = (10.0, 20.0)   # degrees; test prints. The pivot holes and the link branch stay put
+LEVER_BEND_X = 31.0          # bend point along the lever (its STL frame), just past the link branch hole at x 26.5
+
+
+def lever_bent(deg):
+    """MechBrick's Link2_Lever with the palm-cap end of the arm swung toward the link-branch side (toward the
+    palm when it's on the wrist) by `deg` degrees about a point on the arm, with the joint filled in."""
+    m = trimesh.load(OUT / "original" / "parts" / "Link2_Lever.stl")
+    m.apply_translation(-m.bounds[0])
+    lever = Manifold(Mesh(vert_properties=np.asarray(m.vertices, np.float32), tri_verts=np.asarray(m.faces, np.uint32)))
+    lever = Manifold.batch_boolean(lever.decompose(), OpType.Add)
+    xb = LEVER_BEND_X
+    sec = (lever ^ box(xb - 0.05, -50, -50, xb + 0.05, 100, 100)).bounding_box()
+    yc = (sec[1] + sec[4]) / 2
+    near = lever ^ box(-50, -50, -50, xb, 100, 100)
+    far = lever ^ box(xb, -50, -50, 100, 100, 100)
+    turn = lambda part: part.translate((-xb, -yc, 0)).rotate((0, 0, -deg)).translate((xb, yc, 0))
+    joint = Manifold.hull(lever ^ box(xb - 0.6, -50, -50, xb, 100, 100)) + Manifold.hull(
+        (lever ^ box(xb - 0.6, -50, -50, xb, 100, 100)) + turn(lever ^ box(xb, -50, -50, xb + 0.6, 100, 100)))
+    out = Manifold.batch_boolean([near, turn(far), joint], OpType.Add)
+    return out.translate(tuple(-np.array(out.bounding_box()[:3])))
+
+
+DISC_TEST_SCALES = (1.01, 1.015)   # the disc sits a little loose; slightly bigger discs to try (canister bore 31.06)
 
 
 # ---- fit coupon ---------------------------------------------------------------------
@@ -448,18 +517,26 @@ def disc():
     return trimesh.load(OUT / "original" / "Disc.stl")
 
 
+def scaled_disc(k):
+    d = disc()
+    c = d.bounds.mean(0)
+    d.apply_translation(-c); d.apply_scale(k); d.apply_translation(c)
+    return d
+
+
 def plates(made):
     """Print plates, one 3MF each, grouped by filament color. made: the generated parts by name."""
+    levers = [("Link2_Lever", original_part("Link2_Lever"))] +         [(f"Link2_Lever_bent_{d:.0f}deg", made[f"lever_bent_{d:.0f}"]) for d in LEVER_BENDS]
+    test_discs = [(f"Disc_{k * 100:g}pct_{i + 1}", scaled_disc(k)) for k in DISC_TEST_SCALES for i in range(3)]
     return {
         "plate1_any_color_fit_test": [("watch_fit_coupon", made["watch_fit_coupon"])],
         "plate2_red_launcher": [("launcher_one_piece", made["launcher_one_piece"]),
                                 ("Link2_Cap", original_part("Link2_Cap")),
-                                ("Link3_Pad", original_part("Link3_Pad"))],
+                                ("Link3_Pad", original_part("Link3_Pad"))] + levers,
         "plate3_black_mechanism": [(n, original_part(n)) for n in
-                                   ("Slider", "Slider_Retainer", "Pusher_A", "Pusher_B", "Link2_Lever", "Link3",
-                                    "SpringLockPin")]
+                                   ("Slider", "Slider_Retainer", "Pusher_A", "Pusher_B", "Link3", "SpringLockPin")]
                                   + [(f"Spring_{i + 1}", original_part("Spring")) for i in range(SPRINGS)],
-        "plate4_red_discs": [(f"Disc_{i + 1}", disc()) for i in range(DISCS)],
+        "plate4_any_color_discs": [(f"Disc_{i + 1}", disc()) for i in range(DISCS)] + test_discs,
         "plate5_black_belt_canister": [("belt_canister", made["belt_canister"])],
         "optional_plate_only": [("wrist_plate", made["wrist_plate"])],
     }
@@ -469,6 +546,7 @@ def main():
     (OUT / "stl").mkdir(exist_ok=True)
     designs = {"launcher_one_piece": print_one_piece, "wrist_plate": wrist_plate,
                "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister}
+    designs.update({f"lever_bent_{d:.0f}": (lambda d=d: lever_bent(d)) for d in LEVER_BENDS})
     made = {}
     for name, fn in designs.items():
         m = fn()
