@@ -79,13 +79,18 @@ FINGER_SLOT_W = 14.0           # slot up through the floor: a finger slides the 
 EXIT_H = DISC_T + 0.8          # one disc high, so only the bottom disc can leave
 BUMP_H, BUMP_W = 0.4, 1.4      # keeper ridge at the exit: a disc needs a push to get over it
 WINDOW_W = 8.0                 # front window shows how many are left
-CAP_SEAT = 3.0                 # cap snap bead this far below the top of the tube
-BEAD, BEAD_H = 0.5, 1.4        # bead sticks out 0.5 mm
-CAP_CLEAR = 0.2
+NECK = 9.0                     # threaded neck above the belt loop, so the screw cap clears the loop
+THREAD_P, THREAD_D = 3.0, 1.0  # pitch and depth; 45 degree flanks print without supports both ways up
+THREAD_CLR = 0.35              # radial play between the neck thread and the cap thread
 CAP_WALL = 1.8
 CAP_TOP = 2.0
-CAP_BACK_OPEN = -11.0          # cap skirt is cut away behind this (y), clear of the belt loop
-RIB_GRIP = 0.15                # cap rib's inner edge: this far outside the tube wall, so it catches under the bead
+CAP_GAP = 0.5                  # cap skirt stops this far above the belt loop / neck top
+SPRING_D, SPRING_L = 5.5, 38.0 # the metal spring Erin has (the MK-I return spring size)
+SPRING_MIN = 12.0              # shortest the spring gets with a full stack; kept well above its solid length
+FOLLOWER_H = 6.0               # taller than the exit slot, so the follower can't slide out with the last disc
+FOLLOWER_FLOOR = 1.6
+FOLLOWER_CLR = 0.4             # radial play in the bore
+SPRING_PIN_D, SPRING_PIN_H = 3.4, 3.0   # pins inside the spring's ends keep it centered
 BELT_W = 38.0      # TODO: measure the belt
 BELT_T = 4.5       # TODO: measure the belt
 BELT_CLEAR = (1.5, 1.0)  # extra (width, thickness) in the belt tunnel
@@ -341,10 +346,10 @@ def watch_fit_coupon(fits=(-0.20, -0.25, -0.30), length=26.0, pitch=16.0, base_h
 
 # ---- belt canister -------------------------------------------------------------------
 def belt_canister():
-    """v2 (2026-10-30 feedback: "the discs just kind of sit in there"): a dispenser. Discs load from the top under a
-    snap-on cap (belt_cap) and come out the bottom: a one-disc-high exit slot across the front, a finger slot up
-    through the floor to slide the bottom disc out, and a small bump at the exit so a disc doesn't slide out on its
-    own. Gravity drops the next disc into place. Belt tunnel on the back as before.
+    """v3: a spring dispenser. Discs load from the top, then the follower (belt_follower) and a metal spring go in
+    and the screw cap (belt_cap) holds them down. Discs come out the bottom: a one-disc-high exit slot across the
+    front, a finger slot up through the floor to slide the bottom disc out, and a small bump at the exit so a disc
+    doesn't slide out on its own. The spring keeps the stack pressed flat and feeding. Belt tunnel on the back.
     Prints upright; turn on supports (build plate only) for the roof of the exit slot."""
     h = canister_height()
     ro = BORE / 2 + WALL
@@ -354,7 +359,7 @@ def belt_canister():
     # exit slot across the front, one disc high
     tube -= box(-BORE / 2, 0, FLOOR, BORE / 2, ro + 1, FLOOR + EXIT_H)
     # count window above it
-    tube -= box(-WINDOW_W / 2, 0, FLOOR + EXIT_H + 3, WINDOW_W / 2, ro + 1, h - CAP_SEAT - 2)
+    tube -= box(-WINDOW_W / 2, 0, FLOOR + EXIT_H + 3, WINDOW_W / 2, ro + 1, h - 2)
     # keeper ridge just outside the bore on the front ledge (never under a resting disc): a leaving disc has to
     # ride up BUMP_H over it, so it doesn't slide out on its own; ramped both ways
     r0 = BORE / 2 + 0.1
@@ -362,11 +367,8 @@ def belt_canister():
     ridge = ridge ^ box(-50, 0, -1, 50, 50, 5)
     ridge -= box(-FINGER_SLOT_W / 2, -1, -1, FINGER_SLOT_W / 2, 50, 5)
     tube += ridge.translate((0, 0, FLOOR - 0.01))
-    # snap bead around the top for the cap
-    zb = h - CAP_SEAT
-    bead = Manifold.cylinder(BEAD_H / 2, ro, ro + BEAD, SEG).translate((0, 0, zb - BEAD_H)) + \
-        Manifold.cylinder(BEAD_H / 2, ro + BEAD, ro, SEG).translate((0, 0, zb - BEAD_H / 2))
-    tube += bead - cyl(0, 0, zb - BEAD_H - 1, zb + 1, BORE / 2)
+    # threaded neck above the belt loop for the screw cap
+    tube += thread(ro, h - 0.01, h + NECK) - cyl(0, 0, h - 1, h + NECK + 1, BORE / 2)
     # belt tunnel at the back (-y), running along x
     bw, bt = BELT_W + BELT_CLEAR[0], BELT_T + BELT_CLEAR[1]
     lh = h                              # flush with the tube top, under the cap
@@ -383,25 +385,75 @@ def canister_height():
     return max(FLOOR + DISCS * DISC_T + HEADROOM, BELT_W + BELT_CLEAR[0] + 2 * LOOP_WALL)
 
 
+def thread(r_root, z0, z1, n=180):
+    """Solid round bar with a single-start right-hand trapezoid thread from z0 to z1: root radius r_root,
+    crest r_root + THREAD_D. The cap cuts the same helix grown by THREAD_CLR, so the two always mate."""
+    rise, crest, root = THREAD_D, 0.6, THREAD_P - 2 * THREAD_D - 0.6
+    def f(u):
+        u %= THREAD_P
+        if u < root:
+            return 0.0
+        u -= root
+        if u < rise:
+            return u
+        u -= rise
+        if u < crest:
+            return THREAD_D
+        return THREAD_D - (u - crest)
+    pts = []
+    for i in range(n):
+        a = 2 * np.pi * i / n
+        r = r_root + f(THREAD_P * i / n)
+        pts.append((r * np.cos(a), r * np.sin(a)))
+    length = z1 - z0
+    bar = Manifold.extrude(CrossSection([pts]), length, int(length / 0.1), 360 * length / THREAD_P)
+    # phase locked to z = 0, so any two threads made here line up wherever they start
+    return bar.rotate((0, 0, 360 * z0 / THREAD_P)).translate((0, 0, z0))
+
+
+def spring_seat():
+    """Height of the cap's inner ceiling (canister coordinates): the follower's floor sits on a full stack, and the
+    spring is SPRING_MIN long between them."""
+    full = FLOOR + DISCS * DISC_T + FOLLOWER_FLOOR
+    return max(full + SPRING_MIN, canister_height() + NECK + CAP_GAP)
+
+
+def spring_pin(z, down):
+    """Short pin with a pointed tip that goes inside the end of the spring."""
+    r = SPRING_PIN_D / 2
+    body = cyl(0, 0, 0, SPRING_PIN_H - 1.0, r) + Manifold.cylinder(1.0, r, r * 0.5, SEG).translate((0, 0, SPRING_PIN_H - 1.0))
+    return (body.mirror((0, 0, 1)) if down else body).translate((0, 0, z))
+
+
 def belt_cap():
-    """Snap-on cap for the canister: slit skirt with a rib that clicks under the bead, and a pull tab.
-    Prints top-down (as modelled: flat top on the bed)."""
+    """v3 screw cap. Its ceiling holds the top of the spring (a pin goes inside it); grip ridges around the outside.
+    Modelled where it sits on the canister; print_cap() turns it over so the flat top is on the bed."""
+    h = canister_height()
     ro = BORE / 2 + WALL
-    ri = ro + BEAD + CAP_CLEAR          # skirt clears the bead
-    skirt_h = CAP_SEAT + BEAD_H + 1.6   # reaches past the bead
-    cap = cyl(0, 0, 0, CAP_TOP + skirt_h, ri + CAP_WALL) - cyl(0, 0, CAP_TOP, CAP_TOP + skirt_h + 1, ri)
-    # rib at the skirt's open edge, just past the bead when seated; ramped toward the open edge so it pushes on,
-    # flat on the side facing the top so it clicks under the bead and holds
-    z_rib = CAP_TOP + CAP_SEAT + BEAD_H + 0.1
-    rib = cyl(0, 0, z_rib, CAP_TOP + skirt_h, ri) - Manifold.cylinder(CAP_TOP + skirt_h - z_rib, ro + RIB_GRIP, ri + 0.01, SEG) \
-        .translate((0, 0, z_rib))
-    cap += rib
-    for k in range(4):
-        cap -= box(-0.6, 0, CAP_TOP + 1.5, 0.6, ri + CAP_WALL + 1, CAP_TOP + skirt_h + 1).rotate((0, 0, 45 + 90 * k))
-    # open at the back, where the belt loop joins the tube; the skirt clicks on around the front
-    cap -= box(-50, -50, CAP_TOP, 50, CAP_BACK_OPEN, 50)
-    tab = box(-5, ri, 0, 5, ri + CAP_WALL + 5, CAP_TOP)
-    return cap + tab
+    ri = ro + THREAD_D + THREAD_CLR
+    z0, ceil = h + CAP_GAP, spring_seat()
+    cap = cyl(0, 0, z0, ceil + CAP_TOP, ri + CAP_WALL)
+    cap -= thread(ro + THREAD_CLR, z0 - 1, ceil) + cyl(0, 0, z0 - 1, ceil, ro + THREAD_CLR)
+    # lead-in chamfer at the skirt's open edge
+    cap -= Manifold.cylinder(1.0, ri + 0.6, ri - 0.4, SEG).translate((0, 0, z0 - 0.01))
+    for k in range(24):
+        a = 360 * k / 24
+        cap += box(-0.6, ri + CAP_WALL - 0.3, z0, 0.6, ri + CAP_WALL + 0.9, ceil + CAP_TOP).rotate((0, 0, a))
+    return cap + spring_pin(ceil + 0.01, down=True)
+
+
+def print_cap():
+    return belt_cap().rotate((180, 0, 0))
+
+
+def belt_follower():
+    """Flat-bottomed cup that rides on top of the stack and keeps it flat; the spring pushes on its floor.
+    Taller than the exit slot so it stays in when the last disc leaves. Prints as modelled, flat face down."""
+    r = BORE / 2 - FOLLOWER_CLR
+    cup = cyl(0, 0, 0, FOLLOWER_H, r) - cyl(0, 0, FOLLOWER_FLOOR, FOLLOWER_H + 1, r - 1.2)
+    # a slight bevel on the bottom edge so it can't catch on the exit slot or the window
+    cup -= Manifold.cylinder(0.6, r + 0.01, r, SEG) - Manifold.cylinder(0.6, r - 0.6, r, SEG)
+    return cup + spring_pin(FOLLOWER_FLOOR - 0.01, down=False)
 
 
 # ---- export ---------------------------------------------------------------------
@@ -574,7 +626,8 @@ def plates(made):
                                    ("Slider", "Slider_Retainer", "Pusher_A", "Pusher_B", "Link3", "SpringLockPin")]
                                   + [(f"Spring_{i + 1}", original_part("Spring")) for i in range(SPRINGS)],
         "plate4_any_color_discs": [(f"Disc_{i + 1}", disc()) for i in range(DISCS)] + test_discs,
-        "plate5_black_belt_canister": [("belt_canister", made["belt_canister"]), ("belt_cap", made["belt_cap"])],
+        "plate5_black_belt_canister": [("belt_canister", made["belt_canister"]), ("belt_cap", made["belt_cap"]),
+                                       ("belt_follower", made["belt_follower"])],
         "optional_plate_only": [("wrist_plate", made["wrist_plate"])],
     }
 
@@ -582,7 +635,7 @@ def plates(made):
 def main():
     (OUT / "stl").mkdir(exist_ok=True)
     designs = {"launcher_one_piece": print_one_piece, "wrist_plate": wrist_plate,
-               "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister, "belt_cap": belt_cap}
+               "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister, "belt_cap": print_cap, "belt_follower": belt_follower}
     designs.update({f"lever_bent_{d:.0f}": (lambda d=d: lever_bent(d)) for d in LEVER_BENDS})
     made = {}
     for name, fn in designs.items():
