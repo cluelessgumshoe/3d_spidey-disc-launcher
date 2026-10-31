@@ -90,7 +90,9 @@ SPRING_MIN = 12.0              # shortest the spring gets with a full stack; kep
 FOLLOWER_H = 6.0               # taller than the exit slot, so the follower can't slide out with the last disc
 FOLLOWER_FLOOR = 1.6
 FOLLOWER_CLR = 0.4             # radial play in the bore
-SPRING_PIN_D, SPRING_PIN_H = 3.4, 3.0   # pins inside the spring's ends keep it centered
+SPRING_GRIP = SPRING_D - 0.3   # socket hole: a bit under the spring's outside, so it twists in and stays
+SPRING_GRIP_TESTS = (SPRING_D - 0.5, SPRING_D - 0.3, SPRING_D - 0.1)
+SOCKET_DEPTH, SOCKET_WALL = 4.0, 1.2
 BELT_W = 38.0      # TODO: measure the belt
 BELT_T = 4.5       # TODO: measure the belt
 BELT_CLEAR = (1.5, 1.0)  # extra (width, thickness) in the belt tunnel
@@ -418,11 +420,14 @@ def spring_seat():
     return max(full + SPRING_MIN, canister_height() + NECK + CAP_GAP)
 
 
-def spring_pin(z, down):
-    """Short pin with a pointed tip that goes inside the end of the spring."""
-    r = SPRING_PIN_D / 2
-    body = cyl(0, 0, 0, SPRING_PIN_H - 1.0, r) + Manifold.cylinder(1.0, r, r * 0.5, SEG).translate((0, 0, SPRING_PIN_H - 1.0))
-    return (body.mirror((0, 0, 1)) if down else body).translate((0, 0, z))
+def spring_socket(z, down, grip=None):
+    """(boss, hole) for a socket that grips the end of the spring by its outside: twist the spring in and it stays,
+    so the cap, spring and follower come out as one piece. A small chamfer at the mouth starts it."""
+    r = (grip or SPRING_GRIP) / 2
+    boss = cyl(0, 0, 0, SOCKET_DEPTH, r + SOCKET_WALL)
+    hole = cyl(0, 0, 0, SOCKET_DEPTH + 1, r) + Manifold.cylinder(0.6, r, r + 0.4, SEG).translate((0, 0, SOCKET_DEPTH - 0.59))
+    flip = (lambda m: m.mirror((0, 0, 1))) if down else (lambda m: m)
+    return flip(boss).translate((0, 0, z)), flip(hole).translate((0, 0, z))
 
 
 def belt_cap():
@@ -439,7 +444,8 @@ def belt_cap():
     for k in range(24):
         a = 360 * k / 24
         cap += box(-0.6, ri + CAP_WALL - 0.3, z0, 0.6, ri + CAP_WALL + 0.9, ceil + CAP_TOP).rotate((0, 0, a))
-    return cap + spring_pin(ceil + 0.01, down=True)
+    boss, hole = spring_socket(ceil + 0.01, down=True)
+    return cap + boss - hole.translate((0, 0, -0.01))
 
 
 def print_cap():
@@ -453,7 +459,19 @@ def belt_follower():
     cup = cyl(0, 0, 0, FOLLOWER_H, r) - cyl(0, 0, FOLLOWER_FLOOR, FOLLOWER_H + 1, r - 1.2)
     # a slight bevel on the bottom edge so it can't catch on the exit slot or the window
     cup -= Manifold.cylinder(0.6, r + 0.01, r, SEG) - Manifold.cylinder(0.6, r - 0.6, r, SEG)
-    return cup + spring_pin(FOLLOWER_FLOOR - 0.01, down=False)
+    boss, hole = spring_socket(FOLLOWER_FLOOR - 0.01, down=False)
+    return cup + boss - hole.translate((0, 0, 0.01))
+
+
+def spring_grip_coupon(pitch=12.0):
+    """Three spring sockets, tightest to loosest (1 / 2 / 3 notches), to find the one that holds the spring."""
+    base = box(-6, -6, 0, (len(SPRING_GRIP_TESTS) - 1) * pitch + 6, 6, 1.6)
+    for i, g in enumerate(SPRING_GRIP_TESTS):
+        boss, hole = spring_socket(1.59, down=False, grip=g)
+        base = base + boss.translate((i * pitch, 0, 0)) - hole.translate((i * pitch, 0, 0.01))
+        for k in range(i + 1):
+            base -= box(i * pitch - 2.5 + k * 1.6, 4.5, 0.8, i * pitch - 1.7 + k * 1.6, 7, 2)
+    return base
 
 
 # ---- export ---------------------------------------------------------------------
@@ -627,7 +645,8 @@ def plates(made):
                                   + [(f"Spring_{i + 1}", original_part("Spring")) for i in range(SPRINGS)],
         "plate4_any_color_discs": [(f"Disc_{i + 1}", disc()) for i in range(DISCS)] + test_discs,
         "plate5_black_belt_canister": [("belt_canister", made["belt_canister"]), ("belt_cap", made["belt_cap"]),
-                                       ("belt_follower", made["belt_follower"])],
+                                       ("belt_follower", made["belt_follower"]),
+                                       ("spring_grip_coupon", made["spring_grip_coupon"])],
         "optional_plate_only": [("wrist_plate", made["wrist_plate"])],
     }
 
@@ -635,7 +654,8 @@ def plates(made):
 def main():
     (OUT / "stl").mkdir(exist_ok=True)
     designs = {"launcher_one_piece": print_one_piece, "wrist_plate": wrist_plate,
-               "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister, "belt_cap": print_cap, "belt_follower": belt_follower}
+               "watch_fit_coupon": watch_fit_coupon, "belt_canister": belt_canister, "belt_cap": print_cap, "belt_follower": belt_follower,
+               "spring_grip_coupon": spring_grip_coupon}
     designs.update({f"lever_bent_{d:.0f}": (lambda d=d: lever_bent(d)) for d in LEVER_BENDS})
     made = {}
     for name, fn in designs.items():

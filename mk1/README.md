@@ -23,8 +23,9 @@ v1 snapped at the elbow end, where the launcher body hung 22 mm past the end of 
 - **Lever test prints.** `Link2_Lever_bent_10deg` and `_bent_20deg` swing the palm cap end down toward the palm by 10 and 20 degrees; the pivot holes don't move. Print both, keep the one that sits best.
 - **Bigger disc test prints.** The disc sits a little loose, so plate 4 also has three discs at 101% and three at 101.5% (names show the size in the slicer's object list). Try them in the launcher; if one feels right, that's the size to print from now on.
 - It also prints a little easier: less overhang (525 vs 612 mm2) and more of it sits on the bed.
-- **Belt canister v3: spring dispenser with a screw cap.** Discs load from the top and come out the bottom: a one-disc-high exit slot across the front, a finger slot up through the floor to slide the bottom disc out, and a small ridge at the exit so a disc doesn't slip out while he runs. On top of the stack sits a flat follower (yellow below) with a metal spring above it, held down by a screw cap, so the stack stays flat and feeds down as discs come out. The follower is taller than the exit slot, so it can't come out with the last disc.
+- **Belt canister v3: spring dispenser with a screw cap.** Discs load from the top and come out the bottom: a one-disc-high exit slot across the front, a finger slot up through the floor to slide the bottom disc out, and a small ridge at the exit so a disc doesn't slip out while he runs. On top of the stack sits a flat follower (yellow below) with a metal spring above it, held down by a screw cap, so the stack stays flat and feeds down as discs come out. The spring twists into a socket in the cap at one end and in the follower at the other, so cap, spring and follower come out together and nothing falls loose. The follower is taller than the exit slot, so it can't come out with the last disc.
   - Spring: the 5.5 x 38 mm one (same size as the MK-I return spring). It pushes until about 4 discs are left, then gravity feeds the rest. A longer spring (5 to 6 mm wide, 45 to 60 mm long) would push all the way down; change `SPRING_L` in `launcher.py` if you get one.
+  - Spring grip test: `spring_grip_coupon` has three sockets, 1 / 2 / 3 notches for 5.0 / 5.2 / 5.4 mm holes. The cap and follower use the middle one (5.2). Twist the spring into each; if a different one holds best, set `SPRING_GRIP` to match.
 
 ![Belt canister v3: exploded and cut open](images/belt_canister_v3_explained.png)
 
@@ -38,7 +39,7 @@ v1 snapped at the elbow end, where the launcher body hung 22 mm past the end of 
 | 2 `plate2_red_launcher` | red | **The main print:** launcher body and wrist plate as one part, plus the palm cap (`Link2_Cap`), trigger pad (`Link3_Pad`) and three levers: original, bent 10 and bent 20 degrees. |
 | 3 `plate3_black_mechanism` | black | The moving parts: slider and retainer, pushers A and B, `Link3`, spring lock pin, 5 printed springs. |
 | 4 `plate4_any_color_discs` | any | 12 discs, enough to fill the canister, plus test discs at 101% and 101.5%. |
-| 5 `plate5_black_belt_canister` | black | Belt canister v3, its screw cap and the spring follower (cap in a contrasting color looks good). |
+| 5 `plate5_black_belt_canister` | black | Belt canister v3, its screw cap, the spring follower and a spring grip test (cap in a contrasting color looks good). |
 | 6 `optional_plate_only` | either | Just the new wrist plate, if you'd rather keep a separate launcher body and pin it on like before. |
 
 If your slicer puts everything on one plate instead, use the single-plate files in `plates/` (same names). `stl/` has an STL of every part.
@@ -51,7 +52,7 @@ The mechanism parts and discs on plates 3 and 4 are the original designer's file
 
 - **One-piece launcher:** the launcher body and wrist plate are one part, replacing `Main Body_Short`, `WristMount_Body` and `WristMount_Brace`. No curled hooks, no cuff, and the body can't come off the plate. Each side has a solid rail that takes an Apple Watch band.
 - **Band slot:** closed at one end, like the fit coupon. Slide the band in from the open end until it stops and clicks; the latch hole is 11 mm from the stop, so 41 mm and 45 mm bands both catch. Poke a paperclip in the hole to release it.
-- **Belt canister:** unscrew the cap, drop up to 12 discs in, then the follower (flat side down, pin up), then the spring over the pin. Screw the cap on; its pin goes into the top of the spring. To get a disc out, put a finger up into the slot in the bottom and slide the bottom disc out the front; the spring pushes the next one down. The window shows how many are left.
+- **Belt canister:** first, twist one end of the spring into the socket in the cap and the other end into the socket in the follower; they stay together after that. Unscrew the cap (the follower and spring come out with it), drop up to 12 discs in, push the follower in flat side down and screw the cap back on. To get a disc out, put a finger up into the slot in the bottom and slide the bottom disc out the front; the spring pushes the next one down. The window shows how many are left.
 
 ### How the one-piece was made
 
